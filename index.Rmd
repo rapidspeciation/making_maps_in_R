@@ -21,6 +21,8 @@ knitr::opts_knit$set(root.dir = '.')
 
 This is a short tutorial on how to plot maps in R, plotting data onto them such as sampling sites and borders, and how to crop maps using the outline of a country.
 
+The GitHub repository can be found in: https://github.com/rapidspeciation/making_maps_in_R
+
 For it we will be using sampling data of a project looking at wall lizards in Switzerland, in which diferent locations were sampled in two different years, 2021 and 2023. 
 
 First we set up the working environment, loading required libraries and sampling data, and defining the colour palette.
