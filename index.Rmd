@@ -1,8 +1,8 @@
 ---
-title: "Map of wall lizard sampling in Switzerland"
+title: "Plotting maps in R"
+subtitle: "Wall lizard sampling in Switzerland"
 output:
   html_document:
-    code_folding: hide
     df_print: paged
     theme: cerulean
     toc: true
@@ -49,7 +49,7 @@ What does my data look like?
 head(data)
 ```
 
-# Plot the sampling sites
+# Plotting the sampling sites on a map
 
 First we plot the sampling sites on a map of the area. We can do that by: 
 
@@ -82,7 +82,7 @@ ggmap(swiss_map)+
         panel.background = element_blank(), legend.position = "top") 
 ```
 
-# Plot the sampling sites with the outline of Switzerland
+# Adding country borders
 
 Now, we would like to plot on top the outline of Switzerland. 
 
@@ -116,7 +116,7 @@ ggmap(swiss_map)+
 
 
 
-# Plot the sampling sites with the outline of Switzerland and canton borders
+# Adding regional borders
 
 We can do the same but also add the canton borders in the plot. Looks very cluttered but could be useful in some cases.
 
@@ -136,7 +136,7 @@ ggmap(swiss_map)+
 
 ```
 
-# Plot the sampling sites in a cutout of the country
+# Plotting the sampling sites in a cutout of the country
 
 Now, we would like to generate a similar plot of the sampling sites, but cutting out any part of the map outside Switzerland. That is we want to generate a cut-out of Switzerland where we can plot our data. 
 
