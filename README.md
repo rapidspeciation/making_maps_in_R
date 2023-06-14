@@ -2,7 +2,7 @@
 ## Wall lizard sampling in Switzerland
 Author: Anna Orteu, afarreo@gmail.com
 
-This is the GitHub repo hosting the tutorial on how to make maps in R found in: <https://rapidspeciation.github.io/making_maps_in_R/>
+This is the GitHub repository hosting the tutorial on how to make maps in R found in: <https://rapidspeciation.github.io/making_maps_in_R/>
 
 The turorial runs through how to plot maps and add data onto them such as sampling sites and borders, and how to crop maps using the outline of a country.
 
