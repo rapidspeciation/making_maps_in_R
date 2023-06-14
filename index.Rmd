@@ -1,0 +1,203 @@
+---
+title: "Map of wall lizard sampling in Switzerland"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    theme: cerulean
+    toc: true
+    toc_float: true
+    number_sections: true
+    spacing: double
+    fontsize: 12pt
+    fig_width: 8
+    fig_height: 6
+date: "2023-06-06"
+author: "Anna Orteu, afarreo@gmail.com"
+---
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = '.')
+```
+
+This is a short tutorial on how to plot maps in R, plotting data onto them such as sampling sites and borders, and how to crop maps using the outline of a country.
+
+For it we will be using sampling data of a project looking at wall lizards in Switzerland, in which diferent locations were sampled in two different years, 2021 and 2023. 
+
+First we set up the working environment, loading required libraries and sampling data, and defining the colour palette.
+
+```{r, message=FALSE, warning=FALSE}
+library(ggmap)
+library(osmdata)
+library(rnaturalearth)
+library(sf)
+library(raster)
+library(maps)
+
+cbPalette <- c("#F0E442","#CC79A7")
+
+#get the sampling data 
+data <- read.csv("data/Sample_gps.csv")
+data$year = as.factor(data$year)
+```
+
+# The sampling sites
+
+We carried out two fieldwork trips, one in 2021 and one in 2023. We sampled multiple locations in 3 Swiss cantons (Aargau, Bern and Ticino). I want to show the sampling sites in a map with particular emphasis on the relief of Switzerland, given that for our study it is relevant that we sampled on both sides of the Alps. 
+
+What does my data look like? 
+```{r}
+head(data)
+```
+
+# Plot the sampling sites
+
+First we plot the sampling sites on a map of the area. We can do that by: 
+
+1. Define the area that we want to plot 
+```{r, message=FALSE, warning=FALSE}
+#define the area
+switzerland <- c(left = 5.7, bottom = 45.6, right = 10.5, top = 47.9)
+```
+
+2. Get the background map of the area using `get_map` from the `ggmap` package.
+```{r, message=FALSE, warning=FALSE}
+#get the map
+swiss_map <- get_map(switzerland, source="stamen", maptype = "terrain-background", color = "color", force=TRUE)
+```
+
+3. Plot it using the `ggmap` function from the `ggmap` package.
+```{r, message=FALSE, warning=FALSE}
+#plot it
+ggmap(swiss_map)+
+  geom_jitter(data=data, aes(x=longitude, y=latitude, fill=year), size=3, shape=21, width = 0.01, height = 0.01)+
+  theme(legend.position = "none")+
+  scale_fill_manual(values = cbPalette)+
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "grey"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank(), legend.position = "top") 
+```
+
+# Plot the sampling sites with the outline of Switzerland
+
+Now, we would like to plot on top the outline of Switzerland. 
+
+To do that we first need to get the outline as a sf object using the `ne_countries` function from `rnaturalearth`.
+```{r, message=FALSE, warning=FALSE}
+#### SWITZERLAND WITH COUNTRY OUTLINE ####
+# shape of switzerland from 
+swiss_shape <- ne_countries(returnclass = "sf", country = "Switzerland", scale = 'large')
+```
+
+Then, we follow the same steps as before to get and plot the map, but this time add the outline of Switzerland using the function `geom_sf` from `ggmap`.
+```{r, message=FALSE, warning=FALSE}
+#get the map
+swiss_map <- get_map(switzerland, source="stamen", maptype = "terrain-background", color = "color", force=TRUE)
+#plot it
+ggmap(swiss_map)+
+  geom_jitter(data=data, aes(x=longitude, y=latitude, fill=year), size=3, shape=21, width = 0.01, height = 0.01)+
+  theme(legend.position = "none")+
+  scale_fill_manual(values = cbPalette)+
+  geom_sf(data=swiss_shape, aes(x = label_x, y = label_y, group = sovereignt), colour = "grey20", 
+          fill=NA, linewidth =0.9, linetype="longdash")+
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "grey"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank(), legend.position = "top") 
+```
+
+
+
+# Plot the sampling sites with the outline of Switzerland and canton borders
+
+We can do the same but also add the canton borders in the plot. Looks very cluttered but could be useful in some cases.
+
+```{r, message=FALSE, warning=FALSE}
+#### SWITZERLAND WITH CANTONS ####
+#get tge borders
+swiss_shape <- ne_states(country = "Switzerland", returnclass = "sf")
+#get the map
+swiss_map <- get_map(switzerland, source="stamen", maptype = "terrain-background", color = "color", force=TRUE)
+#plot it
+ggmap(swiss_map)+
+  geom_jitter(data=data, aes(x=longitude, y=latitude, fill=year), size=3, shape=21, width = 0.01, height = 0.01)+
+  theme(legend.position = "none")+
+  scale_fill_manual(values = cbPalette)+
+  geom_sf(data=swiss_shape, aes(x = longitude, y = latitude, group = adm0_a3), colour = "grey30", 
+          fill=NA, linewidth =0.9, linetype="longdash")
+
+```
+
+# Plot the sampling sites in a cutout of the country
+
+Now, we would like to generate a similar plot of the sampling sites, but cutting out any part of the map outside Switzerland. That is we want to generate a cut-out of Switzerland where we can plot our data. 
+
+To do this we first need to transform the base map to a raster using a custom function courtesy R Lovelace from https://github.com/Robinlovelace/Creating-maps-in-R/blob/master/vignettes/download-raster.R. 
+
+Then, we can cutout the silhouette of Switzerland using the `crop` and `mask` funstions from the `raster` package. 
+
+```{r, message=FALSE, warning=FALSE}
+#### CROP MAP WITH OUTLINE #####
+
+# courtesy R Lovelace from https://github.com/Robinlovelace/Creating-maps-in-R/blob/master/vignettes/download-raster.R
+ggmap_rast <- function(map){
+  map_bbox <- attr(map, 'bb') 
+  .extent <- extent(as.numeric(map_bbox[c(2,4,1,3)]))
+  my_map <- raster(.extent, nrow= nrow(map), ncol = ncol(map))
+  rgb_cols <- setNames(as.data.frame(t(col2rgb(map))), c('red','green','blue'))
+  red <- my_map
+  values(red) <- rgb_cols[['red']]
+  green <- my_map
+  values(green) <- rgb_cols[['green']]
+  blue <- my_map
+  values(blue) <- rgb_cols[['blue']]
+  stack(red,green,blue)
+}
+
+che.rast <- ggmap_rast(map = swiss_map)
+
+che.rast2 <- crop(che.rast, swiss_shape) 
+che.rast3 <- mask(che.rast2, swiss_shape)
+```
+
+Once we have our cropped raster, we transform it to points in a dataframe to be able to plot it with `ggplot2` and create the base map.
+
+```{r, message=FALSE, warning=FALSE}
+# prep raster as a data frame for printing with ggplot
+che.df <- data.frame(rasterToPoints(che.rast3))
+che_map <- ggplot(che.df) + 
+  geom_point(aes(x=x, y=y, col=rgb(layer.1/255, layer.2/255, layer.3/255))) + 
+  scale_color_identity()
+```
+
+Then we plot the map using `coord_map()` to make sure that out plot maintains the mercator projection and add the data points to it.
+
+```{r}
+# With correct mercator projection
+che_map + 
+  coord_map() +
+  geom_jitter(data=data, aes(x=longitude, y=latitude, fill=year), size=3, shape=21, width = 0.01, height = 0.01)+
+  theme(legend.position = "none")+
+  scale_fill_manual(values = cbPalette)+
+  ylab("Latitude")+
+  xlab("Longitude")+
+  theme_void() +
+  theme(legend.position = c(0.9, 0.85), 
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        plot.title = element_text(size=20, face="bold", hjust = 0.5)) +
+  guides(fill=guide_legend(title="Sampling year"))+
+  ggtitle("Wall lizard sampling in Switzerland")
+
+
+```
+
+
