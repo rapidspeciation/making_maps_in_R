@@ -13,7 +13,7 @@ setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 cbPalette <- c("#F0E442","#CC79A7")
 
 #get the sampling data 
-data <- read.csv("Sample_gps.csv")
+data <- read.csv("../data/Sample_gps.csv")
 
 
 # SWITZERLAND WITH CANTONS ####
